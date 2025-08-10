@@ -30,8 +30,8 @@ void InitializeJumpInputAction(UInputAction* JumpInputAction, UInputMappingConte
 	FEnhancedActionKeyMapping& jump_mapping = InputMappingContext->MapKey(JumpInputAction, EKeys::SpaceBar);
 }
 
-void InitializeHorizontalMovementInputAction(UInputAction* HorizontalMovementInputAction, UInputMappingContext* InputMappingContext, bool Negate) {
-	UE_LOG(LogTemp, Warning, TEXT("Initializing Move%sInputAction..."), Negate ? "Left" : "Right");
+void InitializeHorizontalMovementSingleInputAction(UInputAction* HorizontalMovementInputAction, UInputMappingContext* InputMappingContext) {
+	UE_LOG(LogTemp, Warning, TEXT("Initializing MoveHorizontalInputAction..."));
 	UInputTriggerDown* DownTrigger = NewObject<UInputTriggerDown>();
 	HorizontalMovementInputAction->Triggers.Add(DownTrigger);
 	HorizontalMovementInputAction->ActionDescription = FText::FromString("Move Right");
@@ -39,15 +39,12 @@ void InitializeHorizontalMovementInputAction(UInputAction* HorizontalMovementInp
 	if (!HorizontalMovementInputAction->Triggers.IsEmpty()) {
 		HorizontalMovementInputAction->Triggers[0].Get()->ActuationThreshold = 0.5;
 	}
-	if (Negate) {
-		UNegateFloatInputModifier* NegateFloatInputModifier = NewObject<UNegateFloatInputModifier>();
-		HorizontalMovementInputAction->Modifiers.Add(NegateFloatInputModifier);
-	}
-	// ReverseMovementInputModifier is applied, regardless of direction, so as to enable reversal movement in that direction.
+	// ReverseMovementInputModifier is applied, regardless of direction, so as to enable reversal of movement in that direction.
 	UReverseMovementInputModifier* ReverseMovementInputModifier = NewObject<UReverseMovementInputModifier>();
 	HorizontalMovementInputAction->Modifiers.Add(ReverseMovementInputModifier);
 	// Map this input Action to the keys that can trigger it
-	FEnhancedActionKeyMapping& horizontal_movement = InputMappingContext->MapKey(HorizontalMovementInputAction, Negate ? EKeys::A : EKeys::D);
+	FEnhancedActionKeyMapping& left_horizontal_movement = InputMappingContext->MapKey(HorizontalMovementInputAction, EKeys::A);
+	FEnhancedActionKeyMapping& right_horizontal_movement = InputMappingContext->MapKey(HorizontalMovementInputAction, EKeys::D);
 }
 
 void InitializeDashActivateInputAction(UInputAction* DashActivateInputAction, UInputMappingContext* InputMappingContext, bool Negate) {
@@ -94,8 +91,7 @@ ABlob::ABlob()
 	// Initialize Blob's UInputActions
 	InputMappingContext = UObject::CreateDefaultSubobject<UInputMappingContext>(FName("InputMappingContext"));
 	JumpInputAction = UObject::CreateDefaultSubobject<UInputAction>(FName("JumpInputAction"));
-	MoveRightInputAction = UObject::CreateDefaultSubobject<UInputAction>(FName("MoveRightInputAction"));
-	MoveLeftInputAction = UObject::CreateDefaultSubobject<UInputAction>(FName("MoveLeftInputAction"));
+	MoveInputAction = UObject::CreateDefaultSubobject<UInputAction>(FName("Move Horizontally UInputAction"));
 	DashActivateRightInputAction = UObject::CreateDefaultSubobject<UInputAction>(FName("DashActivateRightInputAction"));
 	DashActivateLeftInputAction = UObject::CreateDefaultSubobject<UInputAction>(FName("DashActivateLeftInputAction"));
 	DashRightInputAction = UObject::CreateDefaultSubobject<UInputAction>(FName("DashRightInputAction"));
@@ -115,11 +111,8 @@ ABlob::ABlob()
 	/*if (DashLeftInputAction) {
 		InitializeDashInputAction(DashLeftInputAction.Get(), DashActivateLeftInputAction.Get(), InputMappingContext.Get(), true);
 	}*/
-	if (MoveRightInputAction) {
-		InitializeHorizontalMovementInputAction(MoveRightInputAction.Get(), InputMappingContext.Get(), false);
-	}
-	if (MoveLeftInputAction) {
-		InitializeHorizontalMovementInputAction(MoveLeftInputAction.Get(), InputMappingContext.Get(), true);
+	if (MoveInputAction) {
+		InitializeHorizontalMovementSingleInputAction(MoveInputAction.Get(), InputMappingContext.Get());
 	}
 }
 
@@ -156,10 +149,8 @@ void ABlob::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
 
 	// Bind Input Action for Jumping
 	Input->BindAction(JumpInputAction.Get(), ETriggerEvent::Triggered, this, &ABlob::HandleJumpInputActionInstance);
-	// Bind Input Action for Horizontal Movement to the Right
-	Input->BindAction(MoveRightInputAction.Get(), ETriggerEvent::Triggered, this, &ABlob::HandleHorizontalMovementInputActionInstance);
-	// Bind Input Action for Horizontal Movement to the Left
-	Input->BindAction(MoveLeftInputAction.Get(), ETriggerEvent::Triggered, this, &ABlob::HandleHorizontalMovementInputActionInstance);
+	// Bind Input Action for Horizontal Movement
+	Input->BindAction(MoveInputAction.Get(), ETriggerEvent::Triggered, this, &ABlob::HandleHorizontalMovementInputActionInstance);
 	// Bind Input Action for Dash to the Right
 	Input->BindAction(DashRightInputAction.Get(), ETriggerEvent::Triggered, this, &ABlob::HandleDashInputActionInstance);
 	// Bind Input Action for Dash to the Left
@@ -204,11 +195,42 @@ void SetNewActorLocation(ABlob* blob, float distance) {
 	}
 }
 
-void ABlob::HandleHorizontalMovementInputActionInstance(const FInputActionInstance& Instance) {
-	float FloatValue = Instance.GetValue().Get<float>(),
-		distance = FloatValue * HorizontalMovement;
+APlayerController* GetAPlayerController(ABlob* blob) {
+	return Cast<APlayerController>(blob->GetController());
+}
 
-	SetNewActorLocation(this, distance);
+UEnhancedInputLocalPlayerSubsystem* GetUEnhancedInputLocalPlayerSubsystem(ABlob* blob) {
+	if (APlayerController* PlayerController = GetAPlayerController(blob)) {
+		if (ULocalPlayer* LocalPlayer = PlayerController->GetLocalPlayer()) {
+			if (UEnhancedInputLocalPlayerSubsystem* Subsystem = LocalPlayer->GetSubsystem<UEnhancedInputLocalPlayerSubsystem>()) {
+				return Subsystem;
+			}
+		}
+	}
+	return nullptr;
+}
+
+void ABlob::HandleHorizontalMovementInputActionInstance(const FInputActionInstance& Instance) {
+	float input_value = 0.0f;
+	UEnhancedInputLocalPlayerSubsystem* Subsystem = GetUEnhancedInputLocalPlayerSubsystem(this);
+	if (Subsystem != nullptr) {
+		TArray<FKey> horizontal_movement_keys = Subsystem->QueryKeysMappedToAction(this->MoveInputAction.Get());
+		APlayerController* controller = GetAPlayerController(this);
+		for (FKey input_key : horizontal_movement_keys) {
+			if (input_key == EKeys::A) {
+				input_value += -1 * controller->GetInputAnalogKeyState(input_key);
+			}
+			else if (input_key == EKeys::D) {
+				input_value += controller->GetInputAnalogKeyState(input_key);
+			}
+		}
+	}
+	else {
+		input_value = Instance.GetValue().Get<float>();
+	}
+	
+
+	SetNewActorLocation(this, input_value * HorizontalMovement);
 }
 
 void ABlob::HandleDashActivateInputActionInstance(const FInputActionInstance& Instance)

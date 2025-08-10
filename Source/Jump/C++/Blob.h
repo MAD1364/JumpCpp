@@ -47,8 +47,7 @@ protected:
 	//UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Input")
 	TSoftObjectPtr<UInputMappingContext> InputMappingContext;
 	TSoftObjectPtr<UInputAction> JumpInputAction;
-	TSoftObjectPtr<UInputAction> MoveRightInputAction;
-	TSoftObjectPtr<UInputAction> MoveLeftInputAction;
+	TSoftObjectPtr<UInputAction> MoveInputAction;
 	// The following two UInputActions constitute the Chorded Action for Dash InputAction.
 	TSoftObjectPtr<UInputAction> DashActivateRightInputAction;
 	TSoftObjectPtr<UInputAction> DashActivateLeftInputAction;
