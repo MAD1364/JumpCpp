@@ -62,8 +62,8 @@ void InitializeDashActivateInputAction(UInputAction* DashActivateInputAction, UI
 	FEnhancedActionKeyMapping& dash_activate = InputMappingContext->MapKey(DashActivateInputAction, Negate ? EKeys::A : EKeys::D);
 }
 
-void InitializeDashInputAction(UInputAction* DashInputAction, UInputAction* DashActivateInputAction, UInputMappingContext* InputMappingContext, bool Negate) {
-	UE_LOG(LogTemp, Warning, TEXT("Initialize Dash..."), Negate ? "Left" : "Right")
+void InitializeDashInputAction(UInputAction* DashInputAction, UInputAction* DashActivateInputAction, UInputMappingContext* InputMappingContext) {
+	UE_LOG(LogTemp, Warning, TEXT("Initialize Dash..."))
 	UInputTriggerDown* DownTrigger = NewObject<UInputTriggerDown>();
 	DashInputAction->Triggers.Add(DownTrigger);
 	DashInputAction->ValueType = EInputActionValueType::Axis1D;
@@ -71,10 +71,6 @@ void InitializeDashInputAction(UInputAction* DashInputAction, UInputAction* Dash
 	ChordedAction->ChordAction = DashActivateInputAction;
 	if (!DashInputAction->Triggers.IsEmpty()) {
 		DashInputAction->Triggers[0].Get()->ActuationThreshold = 0.5;
-	}
-	if (Negate) {
-		UNegateFloatInputModifier* NegateFloatInputModifier = NewObject<UNegateFloatInputModifier>();
-		DashInputAction->Modifiers.Add(NegateFloatInputModifier);
 	}
 	FEnhancedActionKeyMapping& dash = InputMappingContext->MapKey(DashInputAction, EKeys::RightShift);
 }
@@ -105,7 +101,7 @@ ABlob::ABlob()
 		InitializeDashActivateInputAction(DashActivateLeftInputAction.Get(), InputMappingContext.Get(), true);
 	}
 	if (DashInputAction) {
-		InitializeDashInputAction(DashInputAction.Get(), DashActivateRightInputAction.Get(), InputMappingContext.Get(), false);
+		InitializeDashInputAction(DashInputAction.Get(), DashActivateRightInputAction.Get(), InputMappingContext.Get());
 	}
 	if (MoveInputAction) {
 		InitializeHorizontalMovementSingleInputAction(MoveInputAction.Get(), InputMappingContext.Get());
