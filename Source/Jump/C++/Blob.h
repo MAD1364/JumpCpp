@@ -51,9 +51,7 @@ protected:
 	// The following two UInputActions constitute the Chorded Action for Dash InputAction.
 	TSoftObjectPtr<UInputAction> DashActivateRightInputAction;
 	TSoftObjectPtr<UInputAction> DashActivateLeftInputAction;
-	// (TODO): Find a way to refactor this, so that a single Dash action is needed for a single chorded Dash Activate
-	TSoftObjectPtr<UInputAction> DashRightInputAction;
-	TSoftObjectPtr<UInputAction> DashLeftInputAction;
+	TSoftObjectPtr<UInputAction> DashInputAction;
 	float JumpZVelocity = 100.0f;
 	float HorizontalMovement = 5.0f;
 	float DashMultiplier = 10.0f;

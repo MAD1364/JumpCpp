@@ -94,8 +94,7 @@ ABlob::ABlob()
 	MoveInputAction = UObject::CreateDefaultSubobject<UInputAction>(FName("Move Horizontally UInputAction"));
 	DashActivateRightInputAction = UObject::CreateDefaultSubobject<UInputAction>(FName("DashActivateRightInputAction"));
 	DashActivateLeftInputAction = UObject::CreateDefaultSubobject<UInputAction>(FName("DashActivateLeftInputAction"));
-	DashRightInputAction = UObject::CreateDefaultSubobject<UInputAction>(FName("DashRightInputAction"));
-	DashLeftInputAction = UObject::CreateDefaultSubobject<UInputAction>(FName("DashLefttInputAction"));
+	DashInputAction = UObject::CreateDefaultSubobject<UInputAction>(FName("DashRightInputAction"));
 	if (JumpInputAction) {
 		InitializeJumpInputAction(JumpInputAction.Get(), InputMappingContext.Get());
 	}
@@ -105,12 +104,9 @@ ABlob::ABlob()
 	if (DashActivateLeftInputAction) {
 		InitializeDashActivateInputAction(DashActivateLeftInputAction.Get(), InputMappingContext.Get(), true);
 	}
-	if (DashRightInputAction) {
-		InitializeDashInputAction(DashRightInputAction.Get(), DashActivateRightInputAction.Get(), InputMappingContext.Get(), false);
+	if (DashInputAction) {
+		InitializeDashInputAction(DashInputAction.Get(), DashActivateRightInputAction.Get(), InputMappingContext.Get(), false);
 	}
-	/*if (DashLeftInputAction) {
-		InitializeDashInputAction(DashLeftInputAction.Get(), DashActivateLeftInputAction.Get(), InputMappingContext.Get(), true);
-	}*/
 	if (MoveInputAction) {
 		InitializeHorizontalMovementSingleInputAction(MoveInputAction.Get(), InputMappingContext.Get());
 	}
@@ -152,9 +148,7 @@ void ABlob::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
 	// Bind Input Action for Horizontal Movement
 	Input->BindAction(MoveInputAction.Get(), ETriggerEvent::Triggered, this, &ABlob::HandleHorizontalMovementInputActionInstance);
 	// Bind Input Action for Dash to the Right
-	Input->BindAction(DashRightInputAction.Get(), ETriggerEvent::Triggered, this, &ABlob::HandleDashInputActionInstance);
-	// Bind Input Action for Dash to the Left
-	//Input->BindAction(DashLeftInputAction.Get(), ETriggerEvent::Triggered, this, &ABlob::HandleDashInputActionInstance);
+	Input->BindAction(DashInputAction.Get(), ETriggerEvent::Triggered, this, &ABlob::HandleDashInputActionInstance);
 	Input->BindAction(DashActivateRightInputAction.Get(), ETriggerEvent::Triggered, this, &ABlob::HandleDashActivateInputActionInstance);
 	Input->BindAction(DashActivateLeftInputAction.Get(), ETriggerEvent::Triggered, this, &ABlob::HandleDashActivateInputActionInstance);
 }
@@ -227,6 +221,10 @@ void ABlob::HandleHorizontalMovementInputActionInstance(const FInputActionInstan
 	}
 	else {
 		input_value = Instance.GetValue().Get<float>();
+	}
+
+	if (this->GetReverseMovement()) {
+		input_value *= -1.0f;
 	}
 	
 
