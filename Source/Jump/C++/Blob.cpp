@@ -237,6 +237,9 @@ void ABlob::HandleDashInputActionInstance(const FInputActionInstance& Instance)
 				if (left != 0) {
 					distance *= -1;
 				}
+				else {
+					distance *= right;
+				}
 			}
 		}
 	}
