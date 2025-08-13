@@ -30,7 +30,7 @@ void InitializeJumpInputAction(UInputAction* JumpInputAction, UInputMappingConte
 	FEnhancedActionKeyMapping& jump_mapping = InputMappingContext->MapKey(JumpInputAction, EKeys::SpaceBar);
 }
 
-void InitializeHorizontalMovementSingleInputAction(UInputAction* HorizontalMovementInputAction, UInputMappingContext* InputMappingContext) {
+void InitializeHorizontalMovementInputAction(UInputAction* HorizontalMovementInputAction, UInputMappingContext* InputMappingContext) {
 	UE_LOG(LogTemp, Warning, TEXT("Initializing MoveHorizontalInputAction..."));
 	UInputTriggerDown* DownTrigger = NewObject<UInputTriggerDown>();
 	HorizontalMovementInputAction->Triggers.Add(DownTrigger);
@@ -104,7 +104,7 @@ ABlob::ABlob()
 		InitializeDashInputAction(DashInputAction.Get(), DashActivateRightInputAction.Get(), InputMappingContext.Get());
 	}
 	if (MoveInputAction) {
-		InitializeHorizontalMovementSingleInputAction(MoveInputAction.Get(), InputMappingContext.Get());
+		InitializeHorizontalMovementInputAction(MoveInputAction.Get(), InputMappingContext.Get());
 	}
 }
 
