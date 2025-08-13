@@ -48,9 +48,7 @@ protected:
 	TSoftObjectPtr<UInputMappingContext> InputMappingContext;
 	TSoftObjectPtr<UInputAction> JumpInputAction;
 	TSoftObjectPtr<UInputAction> MoveInputAction;
-	// The following two UInputActions constitute the Chorded Action for Dash InputAction.
-	TSoftObjectPtr<UInputAction> DashActivateRightInputAction;
-	TSoftObjectPtr<UInputAction> DashActivateLeftInputAction;
+	TSoftObjectPtr<UInputAction> DashActivateInputAction;
 	TSoftObjectPtr<UInputAction> DashInputAction;
 	float JumpZVelocity = 100.0f;
 	float HorizontalMovement = 5.0f;

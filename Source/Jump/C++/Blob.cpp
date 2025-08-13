@@ -47,19 +47,16 @@ void InitializeHorizontalMovementInputAction(UInputAction* HorizontalMovementInp
 	FEnhancedActionKeyMapping& right_horizontal_movement = InputMappingContext->MapKey(HorizontalMovementInputAction, EKeys::D);
 }
 
-void InitializeDashActivateInputAction(UInputAction* DashActivateInputAction, UInputMappingContext* InputMappingContext, bool Negate) {
-	UE_LOG(LogTemp, Warning, TEXT("Initializing Dash Activate %s..."), Negate ? "Left" : "Right")
+void InitializeDashActivateInputAction(UInputAction* DashActivateInputAction, UInputMappingContext* InputMappingContext) {
+	UE_LOG(LogTemp, Warning, TEXT("Initializing Dash Activate..."))
 	UInputTriggerDown* DownTrigger = NewObject<UInputTriggerDown>();
 	DashActivateInputAction->Triggers.Add(DownTrigger);
-	DashActivateInputAction->ValueType = EInputActionValueType::Axis1D;
+	DashActivateInputAction->ValueType = EInputActionValueType::Boolean;
 	if (!DashActivateInputAction->Triggers.IsEmpty()) {
 		DashActivateInputAction->Triggers[0].Get()->ActuationThreshold = 0.5;
 	}
-	if (Negate) {
-		UNegateFloatInputModifier* NegateFloatInputModifier = NewObject<UNegateFloatInputModifier>();
-		DashActivateInputAction->Modifiers.Add(NegateFloatInputModifier);
-	}
-	FEnhancedActionKeyMapping& dash_activate = InputMappingContext->MapKey(DashActivateInputAction, Negate ? EKeys::A : EKeys::D);
+	FEnhancedActionKeyMapping& dash_activate_left = InputMappingContext->MapKey(DashActivateInputAction, EKeys::A);
+	FEnhancedActionKeyMapping& dash_activate_right = InputMappingContext->MapKey(DashActivateInputAction, EKeys::D);
 }
 
 void InitializeDashInputAction(UInputAction* DashInputAction, UInputAction* DashActivateInputAction, UInputMappingContext* InputMappingContext) {
@@ -88,20 +85,16 @@ ABlob::ABlob()
 	InputMappingContext = UObject::CreateDefaultSubobject<UInputMappingContext>(FName("InputMappingContext"));
 	JumpInputAction = UObject::CreateDefaultSubobject<UInputAction>(FName("JumpInputAction"));
 	MoveInputAction = UObject::CreateDefaultSubobject<UInputAction>(FName("Move Horizontally UInputAction"));
-	DashActivateRightInputAction = UObject::CreateDefaultSubobject<UInputAction>(FName("DashActivateRightInputAction"));
-	DashActivateLeftInputAction = UObject::CreateDefaultSubobject<UInputAction>(FName("DashActivateLeftInputAction"));
+	DashActivateInputAction = UObject::CreateDefaultSubobject<UInputAction>(FName("DashActivateRightInputAction"));
 	DashInputAction = UObject::CreateDefaultSubobject<UInputAction>(FName("DashRightInputAction"));
 	if (JumpInputAction) {
 		InitializeJumpInputAction(JumpInputAction.Get(), InputMappingContext.Get());
 	}
-	if (DashActivateRightInputAction) {
-		InitializeDashActivateInputAction(DashActivateRightInputAction.Get(), InputMappingContext.Get(), false);
-	}
-	if (DashActivateLeftInputAction) {
-		InitializeDashActivateInputAction(DashActivateLeftInputAction.Get(), InputMappingContext.Get(), true);
+	if (DashActivateInputAction) {
+		InitializeDashActivateInputAction(DashActivateInputAction.Get(), InputMappingContext.Get());
 	}
 	if (DashInputAction) {
-		InitializeDashInputAction(DashInputAction.Get(), DashActivateRightInputAction.Get(), InputMappingContext.Get());
+		InitializeDashInputAction(DashInputAction.Get(), DashActivateInputAction.Get(), InputMappingContext.Get());
 	}
 	if (MoveInputAction) {
 		InitializeHorizontalMovementInputAction(MoveInputAction.Get(), InputMappingContext.Get());
@@ -145,8 +138,7 @@ void ABlob::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
 	Input->BindAction(MoveInputAction.Get(), ETriggerEvent::Triggered, this, &ABlob::HandleHorizontalMovementInputActionInstance);
 	// Bind Input Action for Dash to the Right
 	Input->BindAction(DashInputAction.Get(), ETriggerEvent::Triggered, this, &ABlob::HandleDashInputActionInstance);
-	Input->BindAction(DashActivateRightInputAction.Get(), ETriggerEvent::Triggered, this, &ABlob::HandleDashActivateInputActionInstance);
-	Input->BindAction(DashActivateLeftInputAction.Get(), ETriggerEvent::Triggered, this, &ABlob::HandleDashActivateInputActionInstance);
+	Input->BindAction(DashActivateInputAction.Get(), ETriggerEvent::Triggered, this, &ABlob::HandleDashActivateInputActionInstance);
 }
 
 void ABlob::HandleJumpInputActionInstance(const FInputActionInstance& Instance) {
@@ -237,30 +229,52 @@ void ABlob::HandleDashActivateInputActionInstance(const FInputActionInstance& In
 void ABlob::HandleDashInputActionInstance(const FInputActionInstance& Instance)
 {
 	UE_LOG(LogTemp, Warning, TEXT("Dash Triggerred!"))
-	float FloatValue = Instance.GetValue().Get<float>(),
-		distance = FloatValue * HorizontalMovement * DashMultiplier * (this->GetReverseMovement() ? -1.0f : 1.0f);
+	float input_value = Instance.GetValue().Get<float>(),
+		distance = 0.0;
 
-	if (APlayerController* PlayerController = Cast<APlayerController>(GetController())) {
-		if (ULocalPlayer* LocalPlayer = PlayerController->GetLocalPlayer()) {
-			if (UEnhancedInputLocalPlayerSubsystem* Subsystem = LocalPlayer->GetSubsystem<UEnhancedInputLocalPlayerSubsystem>()) {
-				UEnhancedPlayerInput* PlayerInput = Subsystem->GetPlayerInput();
-				FInputActionValue DashActivateRightInputActionValue = PlayerInput->GetActionValue(DashActivateRightInputAction.Get());
-				FInputActionValue DashActivateLeftInputActionValue = PlayerInput->GetActionValue(DashActivateLeftInputAction.Get());
+	UEnhancedInputLocalPlayerSubsystem* Subsystem = GetUEnhancedInputLocalPlayerSubsystem(this);
+	if (Subsystem != nullptr) {
+		UEnhancedPlayerInput* PlayerInput = Subsystem->GetPlayerInput();
+		FInputActionValue DashActivateInputActionValue = PlayerInput->GetActionValue(DashActivateInputAction.Get());
+		APlayerController* controller = GetAPlayerController(this);
 
-				float right = DashActivateRightInputActionValue.Get<float>(),
-					left = DashActivateLeftInputActionValue.Get<float>();
+		bool dash_activate_actuation = DashActivateInputActionValue.Get<bool>();
+		float direction = 1.0f;
 
-				if (left != 0) {
-					distance *= -1;
+		if (dash_activate_actuation) {
+			TArray<FKey> dash_activate_keys = Subsystem->QueryKeysMappedToAction(DashActivateInputAction.Get());
+			bool left = false,
+				right = false;
+			for (FKey input_key : dash_activate_keys) {
+				if (input_key == EKeys::A && controller->GetInputAnalogKeyState(input_key) != 0.0f) {
+					left = true;
 				}
-				else {
-					distance *= right;
+				else if (input_key == EKeys::D && controller->GetInputAnalogKeyState(input_key) != 0.0f) {
+					right = true;
 				}
 			}
+
+			// Dashing in both directions should cancel one another out.
+			if (left && right) {
+				input_value = 0.0f;
+			}
+			else if (left) {
+				// only move left, if the left key has actually been depressed, thereby yielding a non-zero analog key state for this input.
+				direction *= -1;
+			}
+			// default direction of 1.0 addresses Dash to the right being activated.
+
+			input_value *= direction;
+		}
+		else {
+			// Should not dash, if dash has not been activated.
+			input_value = 0.0f;
 		}
 	}
 
-	UE_LOG(LogTemp, Warning, TEXT("Dash InputActionInstance (value, distance): (%.3f, %.3f)"), FloatValue, distance)
+	distance = input_value * HorizontalMovement * DashMultiplier * (this->GetReverseMovement() ? -1.0f : 1.0f);
+
+	UE_LOG(LogTemp, Warning, TEXT("Dash InputActionInstance (value, distance): (%.3f, %.3f)"), input_value, distance)
 
 	SetNewActorLocation(this, distance);
 }
