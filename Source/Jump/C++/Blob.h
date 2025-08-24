@@ -43,6 +43,9 @@ public:
 	// Set whether the Blob's movement should be reversed.
 	void SetReverseMovement(bool bReverseMovement) { ReverseMovement = bReverseMovement; }
 
+	bool GetCanWallJump() const { return CanWallJump; }
+	void SetCanWallJump(bool bCanWallJump) { CanWallJump = bCanWallJump; }
+
 protected:
 	//UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Input")
 	TSoftObjectPtr<UInputMappingContext> InputMappingContext;
@@ -54,4 +57,5 @@ protected:
 	float HorizontalMovement = 5.0f;
 	float DashMultiplier = 10.0f;
 	bool ReverseMovement = false;
+	bool CanWallJump = false;
 };
