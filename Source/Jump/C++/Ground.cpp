@@ -40,6 +40,7 @@ void AGround::OnOverlapBegin(UPrimitiveComponent* OverlappedComp,
 	}
 
 	blobRef->SetCanWallJump(false);
+	blobRef->SetIsOnGround(true);
 }
 
 // Called when the game starts or when spawned

@@ -30,6 +30,8 @@ protected:
 	void HandleDashActivateInputActionInstance(const FInputActionInstance& Instance);
 	// Callback for handling Dashing Input
 	void HandleDashInputActionInstance(const FInputActionInstance& Instance);
+	// Callback for re-enabling input
+	void ReEnableInputOnBlob();
 
 public:	
 	// Called every frame
@@ -46,6 +48,9 @@ public:
 	bool GetCanWallJump() const { return CanWallJump; }
 	void SetCanWallJump(bool bCanWallJump) { CanWallJump = bCanWallJump; }
 
+	bool GetIsOnGround() const { return IsOnGround; }
+	void SetIsOnGround(bool bIsOnGround) { IsOnGround = bIsOnGround; }
+
 protected:
 	//UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Input")
 	TSoftObjectPtr<UInputMappingContext> InputMappingContext;
@@ -56,6 +61,8 @@ protected:
 	float JumpZVelocity = 100.0f;
 	float HorizontalMovement = 5.0f;
 	float DashMultiplier = 10.0f;
+	float DelayTime = 0.5f;
 	bool ReverseMovement = false;
 	bool CanWallJump = false;
+	bool IsOnGround = true;
 };

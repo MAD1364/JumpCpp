@@ -2,6 +2,7 @@
 
 
 #include "Blob.h"
+#include "Components/BoxComponent.h"
 #include "Engine/LocalPlayer.h"
 #include "EnhancedActionKeyMapping.h"
 #include "EnhancedInputComponent.h"
@@ -141,8 +142,80 @@ void ABlob::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
 	Input->BindAction(DashActivateInputAction.Get(), ETriggerEvent::Triggered, this, &ABlob::HandleDashActivateInputActionInstance);
 }
 
+APlayerController* GetAPlayerController(ABlob* blob) {
+	return Cast<APlayerController>(blob->GetController());
+}
+
+UEnhancedInputLocalPlayerSubsystem* GetUEnhancedInputLocalPlayerSubsystem(ABlob* blob) {
+	if (APlayerController* PlayerController = GetAPlayerController(blob)) {
+		if (ULocalPlayer* LocalPlayer = PlayerController->GetLocalPlayer()) {
+			if (UEnhancedInputLocalPlayerSubsystem* Subsystem = LocalPlayer->GetSubsystem<UEnhancedInputLocalPlayerSubsystem>()) {
+				return Subsystem;
+			}
+		}
+	}
+	return nullptr;
+}
+
 void ABlob::HandleJumpInputActionInstance(const FInputActionInstance& Instance) {
-	this->Jump();
+	if (CanWallJump) {
+		FVector ActorLocation = this->GetActorLocation();
+		FVector BoxExtent = FVector(0.0, 40.0, 0.0);
+		TArray<TEnumAsByte<EObjectTypeQuery>> ObjectTypes;
+		ObjectTypes.Add(UEngineTypes::ConvertToObjectType(ECollisionChannel::ECC_WorldStatic));
+		UClass* BoxComponentFilter = UBoxComponent::StaticClass();
+		TArray<AActor*> IgnoreActors;
+		TArray<UPrimitiveComponent*> OutputComponents;
+		if (UKismetSystemLibrary::BoxOverlapComponents(
+			this->GetWorld(),
+			ActorLocation,
+			BoxExtent,
+			ObjectTypes,
+			BoxComponentFilter,
+			IgnoreActors,
+			OutputComponents)) {
+			// Default Pawn velocity, along the Y-axis is 600.0 cm/s. We conform to this velocity to avoid any added velocity from regular horizontal
+			// movement from causing movement to look strange (way faster).
+			//
+			// Default Pawn JumpZVelocity is 420 cm/s.
+			FVector LaunchVelocity(0.0, 600.0, 420.0);
+			UEnhancedInputLocalPlayerSubsystem* Subsystem = GetUEnhancedInputLocalPlayerSubsystem(this);
+			if (Subsystem != nullptr) {
+				TArray<FKey> horizontal_movement_keys = Subsystem->QueryKeysMappedToAction(this->MoveInputAction.Get());
+				APlayerController* controller = GetAPlayerController(this);
+				float launch_multiplier = 0.0f;
+				for (FKey input_key : horizontal_movement_keys) {
+					if (input_key == EKeys::A && controller->GetInputAnalogKeyState(input_key) != 0) {
+						launch_multiplier = 1.0f;
+					}
+					else if (input_key == EKeys::D && controller->GetInputAnalogKeyState(input_key) != 0) {
+						launch_multiplier = -1.0f;
+					}
+				}
+
+				float input_value = Instance.GetValue().IsNonZero() ? 1.0f : 0.0f;
+				LaunchVelocity.Y *= input_value * launch_multiplier * (ReverseMovement ? -1.0 : 1.0);
+				LaunchVelocity.Z *= input_value;
+			}
+			this->LaunchCharacter(LaunchVelocity, true, true);
+			this->CanWallJump = false;
+			this->IsOnGround = false;
+			// Disable Input temporarily, to prevent user input responsible for an effective Wall Jump from adding a velocity in the opposite direction
+			// the character is to be launched.
+			this->DisableInput(GetAPlayerController(this));
+			// Re-enable input, after a short duration.
+			FTimerHandle TimerHandle;
+			GetWorldTimerManager().SetTimer(TimerHandle, this, &ABlob::ReEnableInputOnBlob, 1.0f, false, DelayTime);
+		}
+	}
+	else if (IsOnGround) {
+		this->Jump();
+		IsOnGround = false;
+	}
+}
+
+void ABlob::ReEnableInputOnBlob() {
+	this->EnableInput(GetAPlayerController(this));
 }
 
 void SetNewActorLocation(ABlob* blob, float distance) {
@@ -159,37 +232,22 @@ void SetNewActorLocation(ABlob* blob, float distance) {
 	TArray<TEnumAsByte<EObjectTypeQuery>> ObjectTypes;
 	ObjectTypes.Add(UEngineTypes::ConvertToObjectType(ECollisionChannel::ECC_WorldStatic));
 	// Actor Class to filter on (search only for AActors of this type, that issue collision events via the channels specified above).
-	UClass* ActorFilter = AStaticMeshActor::StaticClass();
+	UClass* ComponentFilter = UStaticMeshComponent::StaticClass();
 	// Actor types to ignore.
 	TArray<AActor*> IgnoreActors;
 	// Actors that overlap with the box extended.
-	TArray<AActor*> OutputActors;
-	if (!UKismetSystemLibrary::BoxOverlapActors(
+	TArray<UPrimitiveComponent*> OutputComponents;
+	if (!UKismetSystemLibrary::BoxOverlapComponents(
 		blob->GetWorld(),
 		NewActorLocation,
 		BoxExtent,
 		ObjectTypes,
-		ActorFilter,
+		ComponentFilter,
 		IgnoreActors,
-		OutputActors)
+		OutputComponents)
 		) {
 		blob->SetActorLocation(NewActorLocation);
 	}
-}
-
-APlayerController* GetAPlayerController(ABlob* blob) {
-	return Cast<APlayerController>(blob->GetController());
-}
-
-UEnhancedInputLocalPlayerSubsystem* GetUEnhancedInputLocalPlayerSubsystem(ABlob* blob) {
-	if (APlayerController* PlayerController = GetAPlayerController(blob)) {
-		if (ULocalPlayer* LocalPlayer = PlayerController->GetLocalPlayer()) {
-			if (UEnhancedInputLocalPlayerSubsystem* Subsystem = LocalPlayer->GetSubsystem<UEnhancedInputLocalPlayerSubsystem>()) {
-				return Subsystem;
-			}
-		}
-	}
-	return nullptr;
 }
 
 void ABlob::HandleHorizontalMovementInputActionInstance(const FInputActionInstance& Instance) {
@@ -221,7 +279,7 @@ void ABlob::HandleHorizontalMovementInputActionInstance(const FInputActionInstan
 
 void ABlob::HandleDashActivateInputActionInstance(const FInputActionInstance& Instance)
 {
-	UE_LOG(LogTemp, Warning, TEXT("Dash Activate Triggerred!"))
+	//UE_LOG(LogTemp, Warning, TEXT("Dash Activate Triggerred!"))
 }
 
 

@@ -14,7 +14,7 @@ FInputActionValue UReverseMovementInputModifier::ModifyRaw_Implementation(
 	if (PlayerController != nullptr) {
 		ABlob* Blob = Cast<ABlob>(PlayerController->GetCharacter());
 		if (Blob != nullptr) {
-			UE_LOG(LogTemp, Warning, TEXT("Blob Character is accessible from UInputModifier assigned to one of its InputActions!"));
+			//UE_LOG(LogTemp, Warning, TEXT("Blob Character is accessible from UInputModifier assigned to one of its InputActions!"));
 			bReverseDirection = Blob->GetReverseMovement();
 		}
 	}
